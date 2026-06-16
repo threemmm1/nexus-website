@@ -1,0 +1,10 @@
+{
+  "name": "@vesioh/config",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    "./eslint": "./eslint.js",
+    "./typescript": "./typescript.json",
+    "./prettier": "./prettier.js"
+  }
+}
