@@ -1,0 +1,27 @@
+{
+  "name": "vesioh",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "db:migrate": "turbo run db:migrate --filter=@vesioh/api",
+    "db:studio": "turbo run db:studio --filter=@vesioh/api"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.0",
+    "turbo": "^2.9.18",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

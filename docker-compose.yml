@@ -1,0 +1,91 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vesioh_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vesioh
+      POSTGRES_USER: vesioh
+      POSTGRES_PASSWORD: vesioh_secret
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vesioh -d vesioh']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:7-jammy
+    container_name: vesioh_mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: vesioh
+      MONGO_INITDB_ROOT_PASSWORD: vesioh_secret
+      MONGO_INITDB_DATABASE: vesioh
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', 'db.adminCommand("ping")']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: vesioh_redis
+    restart: unless-stopped
+    command: redis-server --requirepass vesioh_secret --appendonly yes
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', 'vesioh_secret', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: MongoDB GUI
+  mongo-express:
+    image: mongo-express:latest
+    container_name: vesioh_mongo_express
+    restart: unless-stopped
+    ports:
+      - '8081:8081'
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: vesioh
+      ME_CONFIG_MONGODB_ADMINPASSWORD: vesioh_secret
+      ME_CONFIG_MONGODB_URL: mongodb://vesioh:vesioh_secret@mongo:27017/
+      ME_CONFIG_BASICAUTH: false
+    depends_on:
+      mongo:
+        condition: service_healthy
+    profiles:
+      - tools
+
+  # Optional: Redis GUI
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: vesioh_redis_commander
+    restart: unless-stopped
+    ports:
+      - '8082:8081'
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:vesioh_secret
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+  mongo_data:
+  redis_data:
