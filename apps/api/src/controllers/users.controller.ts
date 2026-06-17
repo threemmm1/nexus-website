@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { successResponse } from '@vesioh/utils';
+import { successResponse, parsePagination } from '@vesioh/utils';
 import * as userService from '../services/user.service';
 import * as followService from '../services/follow.service';
 import * as blockService from '../services/block.service';
@@ -92,16 +92,14 @@ export async function removeFollower(req: Request, res: Response): Promise<void>
 
 export async function getFollowers(req: Request, res: Response): Promise<void> {
   const { userId } = req.params as { userId: string };
-  const page = Number(req.query['page'] ?? 1);
-  const limit = Number(req.query['limit'] ?? PAGINATION.DEFAULT_LIMIT);
+  const { page, limit } = parsePagination(req.query as Record<string, unknown>, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
   const { users, meta } = await followService.getFollowers(userId, page, limit, req.user?.userId);
   res.json(successResponse(users, meta));
 }
 
 export async function getFollowing(req: Request, res: Response): Promise<void> {
   const { userId } = req.params as { userId: string };
-  const page = Number(req.query['page'] ?? 1);
-  const limit = Number(req.query['limit'] ?? PAGINATION.DEFAULT_LIMIT);
+  const { page, limit } = parsePagination(req.query as Record<string, unknown>, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
   const { users, meta } = await followService.getFollowing(userId, page, limit, req.user?.userId);
   res.json(successResponse(users, meta));
 }
@@ -127,8 +125,7 @@ export async function unblockUser(req: Request, res: Response): Promise<void> {
 }
 
 export async function getBlockedUsers(req: Request, res: Response): Promise<void> {
-  const page = Number(req.query['page'] ?? 1);
-  const limit = Number(req.query['limit'] ?? PAGINATION.DEFAULT_LIMIT);
+  const { page, limit } = parsePagination(req.query as Record<string, unknown>, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
   const { users, meta } = await blockService.getBlockedUsers(req.user!.userId, page, limit);
   res.json(successResponse(users, meta));
 }
@@ -137,9 +134,7 @@ export async function getBlockedUsers(req: Request, res: Response): Promise<void
 
 export async function searchUsers(req: Request, res: Response): Promise<void> {
   const q = String(req.query['q'] ?? '').trim();
-  const page = Number(req.query['page'] ?? 1);
-  const limit = Number(req.query['limit'] ?? PAGINATION.DEFAULT_LIMIT);
-  const offset = (page - 1) * Math.min(limit, PAGINATION.MAX_LIMIT);
+  const { limit, offset } = parsePagination(req.query as Record<string, unknown>, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
 
   const users = await userService.searchUsers(q, req.user?.userId, limit, offset);
   res.json(successResponse(users));

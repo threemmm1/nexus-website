@@ -3,7 +3,7 @@ import { redis } from '../lib/redis/client';
 import { getMessaging } from '../lib/firebase/admin';
 import { getIO } from '../lib/socket';
 import { AppError } from '../middleware/error.middleware';
-import { buildPaginationMeta } from '@vesioh/utils';
+import { buildPaginationMeta, parsePagination } from '@vesioh/utils';
 import { REDIS_KEYS, PAGINATION } from '../config/constants';
 import type { NotificationType } from '@prisma/client';
 
@@ -36,7 +36,7 @@ export async function createNotification(input: CreateNotificationInput): Promis
 
   await redis.incr(REDIS_KEYS.unreadCount(input.userId));
 
-  const unreadCount = parseInt((await redis.get(REDIS_KEYS.unreadCount(input.userId))) ?? '0', 10);
+  const unreadCount = await getUnreadCount(input.userId);
 
   try {
     getIO().to(`user:${input.userId}`).emit('notification', { notification, unreadCount });
@@ -48,8 +48,7 @@ export async function createNotification(input: CreateNotificationInput): Promis
 }
 
 export async function getNotifications(userId: string, page: number, limit: number) {
-  const safeLimit = Math.min(limit, PAGINATION.MAX_LIMIT);
-  const offset = (page - 1) * safeLimit;
+  const { limit: safeLimit, offset } = parsePagination({ page, limit }, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
 
   const [total, notifications] = await Promise.all([
     prisma.notification.count({ where: { userId } }),

@@ -1,14 +1,10 @@
 import type { Request, Response } from 'express';
-import { successResponse } from '@vesioh/utils';
+import { successResponse, parsePagination } from '@vesioh/utils';
 import * as notifService from '../services/notification.service';
 import { PAGINATION } from '../config/constants';
 
 export async function listNotifications(req: Request, res: Response): Promise<void> {
-  const page = Math.max(1, parseInt((req.query['page'] as string) ?? '1', 10));
-  const limit = Math.min(
-    parseInt((req.query['limit'] as string) ?? String(PAGINATION.DEFAULT_LIMIT), 10),
-    PAGINATION.MAX_LIMIT,
-  );
+  const { page, limit } = parsePagination(req.query as Record<string, unknown>, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
   const result = await notifService.getNotifications(req.user!.userId, page, limit);
   res.json(successResponse(result.notifications, result.meta));
 }

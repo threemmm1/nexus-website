@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma/client';
 import { AppError } from '../middleware/error.middleware';
-import { buildPaginationMeta } from '@vesioh/utils';
+import { buildPaginationMeta, parsePagination } from '@vesioh/utils';
 import { PAGINATION } from '../config/constants';
 
 export async function blockUser(blockerId: string, blockedId: string): Promise<void> {
@@ -70,8 +70,7 @@ export async function getBlockedUsers(
   page: number,
   limit: number,
 ) {
-  const safeLimit = Math.min(limit, PAGINATION.MAX_LIMIT);
-  const offset = (page - 1) * safeLimit;
+  const { limit: safeLimit, offset } = parsePagination({ page, limit }, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
 
   const [total, blocks] = await Promise.all([
     prisma.block.count({ where: { blockerId: userId } }),

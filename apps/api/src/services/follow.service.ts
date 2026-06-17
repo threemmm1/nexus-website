@@ -1,8 +1,9 @@
 import { prisma } from '../lib/prisma/client';
 import { AppError } from '../middleware/error.middleware';
-import { buildPaginationMeta } from '@vesioh/utils';
+import { buildPaginationMeta, parsePagination } from '@vesioh/utils';
 import { PAGINATION } from '../config/constants';
 import { createNotification } from './notification.service';
+import { isBlockedInEitherDirection } from './block.service';
 
 export async function followUser(followerId: string, followingId: string): Promise<void> {
   if (followerId === followingId) {
@@ -18,17 +19,9 @@ export async function followUser(followerId: string, followingId: string): Promi
     throw new AppError(404, 'NOT_FOUND', 'User not found');
   }
 
-  const block = await prisma.block.findFirst({
-    where: {
-      OR: [
-        { blockerId: followerId, blockedId: followingId },
-        { blockerId: followingId, blockedId: followerId },
-      ],
-    },
-    select: { id: true },
-  });
-
-  if (block) throw new AppError(403, 'BLOCKED', 'Cannot follow this user');
+  if (await isBlockedInEitherDirection(followerId, followingId)) {
+    throw new AppError(403, 'BLOCKED', 'Cannot follow this user');
+  }
 
   const existing = await prisma.follow.findUnique({
     where: { followerId_followingId: { followerId, followingId } },
@@ -100,8 +93,7 @@ export async function getFollowers(
   limit: number,
   viewerId?: string,
 ) {
-  const safeLimit = Math.min(limit, PAGINATION.MAX_LIMIT);
-  const offset = (page - 1) * safeLimit;
+  const { limit: safeLimit, offset } = parsePagination({ page, limit }, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
 
   const [total, follows] = await Promise.all([
     prisma.follow.count({ where: { followingId: userId } }),
@@ -138,8 +130,7 @@ export async function getFollowing(
   limit: number,
   viewerId?: string,
 ) {
-  const safeLimit = Math.min(limit, PAGINATION.MAX_LIMIT);
-  const offset = (page - 1) * safeLimit;
+  const { limit: safeLimit, offset } = parsePagination({ page, limit }, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
 
   const [total, follows] = await Promise.all([
     prisma.follow.count({ where: { followerId: userId } }),

@@ -1,7 +1,8 @@
 import { prisma } from '../lib/prisma/client';
 import { redis } from '../lib/redis/client';
+import { parsePagination } from '@vesioh/utils';
 import { REDIS_KEYS, PAGINATION } from '../config/constants';
-import { POST_SELECT, formatPost } from './post.service';
+import { POST_SELECT, formatPost, attachPostViewerFlags } from './post.service';
 
 const FEED_CACHE_TTL = 300;
 const LARGE_ACCOUNT_THRESHOLD = 10_000;
@@ -23,8 +24,7 @@ export async function getFollowingFeed(
   page: number,
   limit: number,
 ): Promise<{ posts: object[]; hasMore: boolean }> {
-  const safeLimit = Math.min(limit, PAGINATION.MAX_LIMIT);
-  const offset = (page - 1) * safeLimit;
+  const { limit: safeLimit, offset } = parsePagination({ page, limit }, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
 
   if (page === 1) {
     const cached = await redis.get(REDIS_KEYS.feedCache(userId));
@@ -73,7 +73,8 @@ export async function getFollowingFeed(
   }
 
   const slice = scored.slice(offset, offset + safeLimit);
-  const formatted = await attachViewerFlags(slice.map((s) => formatPost(s.post as Record<string, unknown>)), userId);
+  const slicePosts = slice.map((s) => formatPost(s.post as Record<string, unknown>));
+  const formatted = await attachPostViewerFlags(slicePosts, slicePosts.map((p) => p.id), userId);
 
   return { posts: formatted, hasMore: scored.length > offset + safeLimit };
 }
@@ -83,8 +84,7 @@ export async function getExploreFeed(
   page: number,
   limit: number,
 ): Promise<{ posts: object[]; hasMore: boolean }> {
-  const safeLimit = Math.min(limit, PAGINATION.MAX_LIMIT);
-  const offset = (page - 1) * safeLimit;
+  const { limit: safeLimit, offset } = parsePagination({ page, limit }, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
 
   const blockedByIds = userId
     ? (await prisma.block.findMany({ where: { blockedId: userId }, select: { blockerId: true } })).map((b) => b.blockerId)
@@ -111,7 +111,8 @@ export async function getExploreFeed(
     .sort((a, b) => b.score - a.score);
 
   const slice = scored.slice(offset, offset + safeLimit);
-  const formatted = await attachViewerFlags(slice.map((s) => formatPost(s.post as Record<string, unknown>)), userId);
+  const slicePosts = slice.map((s) => formatPost(s.post as Record<string, unknown>));
+  const formatted = await attachPostViewerFlags(slicePosts, slicePosts.map((p) => p.id), userId);
 
   return { posts: formatted, hasMore: scored.length > offset + safeLimit };
 }
@@ -152,25 +153,7 @@ async function hydratePostIds(postIds: string[], viewerId?: string): Promise<obj
 
   const map = new Map(posts.map((p) => [p.id, p]));
   const ordered = postIds.map((id) => map.get(id)).filter(Boolean);
+  const formatted = ordered.map((p) => formatPost(p as Record<string, unknown>));
 
-  return attachViewerFlags(ordered.map((p) => formatPost(p as Record<string, unknown>)), viewerId);
-}
-
-async function attachViewerFlags(posts: object[], viewerId?: string): Promise<object[]> {
-  if (!viewerId || posts.length === 0) return posts;
-
-  const postIds = (posts as Array<{ id: string }>).map((p) => p.id);
-  const [likes, saves] = await Promise.all([
-    prisma.like.findMany({ where: { userId: viewerId, postId: { in: postIds } }, select: { postId: true } }),
-    prisma.save.findMany({ where: { userId: viewerId, postId: { in: postIds } }, select: { postId: true } }),
-  ]);
-
-  const likedSet = new Set(likes.map((l) => l.postId));
-  const savedSet = new Set(saves.map((s) => s.postId));
-
-  return (posts as Array<{ id: string }>).map((p) => ({
-    ...p,
-    isLiked: likedSet.has(p.id),
-    isSaved: savedSet.has(p.id),
-  }));
+  return attachPostViewerFlags(formatted, formatted.map((p) => p.id), viewerId);
 }

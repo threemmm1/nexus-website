@@ -41,4 +41,5 @@ export const REDIS_KEYS = {
   rateLimitAuth: (ip: string) => `rate:auth:${ip}`,
   fcmToken: (userId: string) => `fcm:token:${userId}`,
   unreadCount: (userId: string) => `notif:unread:${userId}`,
+  commentLikes: (commentId: string) => `comment_likes:${commentId}`,
 };

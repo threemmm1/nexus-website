@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { successResponse } from '@vesioh/utils';
+import { successResponse, parsePagination } from '@vesioh/utils';
 import * as postService from '../services/post.service';
 import * as commentService from '../services/comment.service';
 import * as mediaService from '../services/media.service';
@@ -54,8 +54,7 @@ export async function getPost(req: Request, res: Response): Promise<void> {
 
 export async function getUserPosts(req: Request, res: Response): Promise<void> {
   const { userId } = req.params as { userId: string };
-  const page = Number(req.query['page'] ?? 1);
-  const limit = Number(req.query['limit'] ?? PAGINATION.DEFAULT_LIMIT);
+  const { page, limit } = parsePagination(req.query as Record<string, unknown>, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
   const { posts, meta } = await postService.getUserPosts(userId, page, limit, req.user?.userId);
   res.json(successResponse(posts, meta));
 }
@@ -91,16 +90,14 @@ export async function unsavePost(req: Request, res: Response): Promise<void> {
 }
 
 export async function getSavedPosts(req: Request, res: Response): Promise<void> {
-  const page = Number(req.query['page'] ?? 1);
-  const limit = Number(req.query['limit'] ?? PAGINATION.DEFAULT_LIMIT);
+  const { page, limit } = parsePagination(req.query as Record<string, unknown>, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
   const { posts, meta } = await postService.getSavedPosts(req.user!.userId, page, limit);
   res.json(successResponse(posts, meta));
 }
 
 export async function getHashtagPosts(req: Request, res: Response): Promise<void> {
   const { tag } = req.params as { tag: string };
-  const page = Number(req.query['page'] ?? 1);
-  const limit = Number(req.query['limit'] ?? PAGINATION.DEFAULT_LIMIT);
+  const { page, limit } = parsePagination(req.query as Record<string, unknown>, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
   const result = await postService.getPostsByHashtag(tag, page, limit);
   res.json(successResponse(result));
 }
@@ -116,16 +113,14 @@ export async function createComment(req: Request, res: Response): Promise<void> 
 
 export async function getPostComments(req: Request, res: Response): Promise<void> {
   const { postId } = req.params as { postId: string };
-  const page = Number(req.query['page'] ?? 1);
-  const limit = Number(req.query['limit'] ?? PAGINATION.DEFAULT_LIMIT);
+  const { page, limit } = parsePagination(req.query as Record<string, unknown>, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
   const { comments, meta } = await commentService.getPostComments(postId, page, limit, req.user?.userId);
   res.json(successResponse(comments, meta));
 }
 
 export async function getCommentReplies(req: Request, res: Response): Promise<void> {
   const { commentId } = req.params as { commentId: string };
-  const page = Number(req.query['page'] ?? 1);
-  const limit = Number(req.query['limit'] ?? 20);
+  const { page, limit } = parsePagination(req.query as Record<string, unknown>, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
   const { replies, meta } = await commentService.getCommentReplies(commentId, page, limit);
   res.json(successResponse(replies, meta));
 }

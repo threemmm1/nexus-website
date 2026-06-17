@@ -1,9 +1,10 @@
 import { prisma } from '../lib/prisma/client';
 import { redis } from '../lib/redis/client';
 import { AppError } from '../middleware/error.middleware';
-import { buildPaginationMeta } from '@vesioh/utils';
+import { buildPaginationMeta, parsePagination } from '@vesioh/utils';
 import { deleteMediaAssets } from './media.service';
 import { createNotification } from './notification.service';
+import { ensureOwnerOrMod } from '../lib/permissions';
 import { PAGINATION, REDIS_KEYS } from '../config/constants';
 
 export interface ConfirmedMedia {
@@ -164,8 +165,7 @@ export async function getUserPosts(
   limit: number,
   viewerId?: string,
 ) {
-  const safeLimit = Math.min(limit, PAGINATION.MAX_LIMIT);
-  const offset = (page - 1) * safeLimit;
+  const { limit: safeLimit, offset } = parsePagination({ page, limit }, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
 
   const [total, posts] = await Promise.all([
     prisma.post.count({ where: { authorId: userId, status: 'active' } }),
@@ -179,27 +179,13 @@ export async function getUserPosts(
   ]);
 
   const formatted = posts.map(formatPost);
+  const withFlags = await attachPostViewerFlags(formatted, posts.map((p) => p.id), viewerId);
 
-  if (viewerId && formatted.length > 0) {
-    const postIds = posts.map((p) => p.id);
-    const [likes, saves] = await Promise.all([
-      prisma.like.findMany({ where: { userId: viewerId, postId: { in: postIds } }, select: { postId: true } }),
-      prisma.save.findMany({ where: { userId: viewerId, postId: { in: postIds } }, select: { postId: true } }),
-    ]);
-    const likedSet = new Set(likes.map((l) => l.postId));
-    const savedSet = new Set(saves.map((s) => s.postId));
-    return {
-      posts: formatted.map((p) => ({ ...p, isLiked: likedSet.has(p.id), isSaved: savedSet.has(p.id) })),
-      meta: buildPaginationMeta(total, page, safeLimit),
-    };
-  }
-
-  return { posts: formatted, meta: buildPaginationMeta(total, page, safeLimit) };
+  return { posts: withFlags, meta: buildPaginationMeta(total, page, safeLimit) };
 }
 
 export async function getSavedPosts(userId: string, page: number, limit: number) {
-  const safeLimit = Math.min(limit, PAGINATION.MAX_LIMIT);
-  const offset = (page - 1) * safeLimit;
+  const { limit: safeLimit, offset } = parsePagination({ page, limit }, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
 
   const [total, saves] = await Promise.all([
     prisma.save.count({ where: { userId } }),
@@ -232,12 +218,7 @@ export async function deletePost(postId: string, requesterId: string, requesterR
 
   if (!post) throw new AppError(404, 'NOT_FOUND', 'Post not found');
 
-  const isOwner = post.authorId === requesterId;
-  const isMod = requesterRole === 'moderator' || requesterRole === 'admin';
-
-  if (!isOwner && !isMod) {
-    throw new AppError(403, 'FORBIDDEN', 'You do not have permission to delete this post');
-  }
+  ensureOwnerOrMod(post.authorId, requesterId, requesterRole, 'You do not have permission to delete this post');
 
   await prisma.$transaction(async (tx) => {
     await tx.post.delete({ where: { id: postId } });
@@ -334,8 +315,7 @@ export async function unsavePost(userId: string, postId: string): Promise<void> 
 }
 
 export async function getPostsByHashtag(tag: string, page: number, limit: number) {
-  const safeLimit = Math.min(limit, PAGINATION.MAX_LIMIT);
-  const offset = (page - 1) * safeLimit;
+  const { limit: safeLimit, offset } = parsePagination({ page, limit }, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
 
   const hashtag = await prisma.hashtag.findUnique({ where: { name: tag.toLowerCase() }, select: { id: true, name: true, postsCount: true } });
   if (!hashtag) throw new AppError(404, 'NOT_FOUND', 'Hashtag not found');
@@ -373,6 +353,23 @@ export interface FormattedPost {
   author: unknown;
   media: unknown[];
   hashtags: string[];
+}
+
+export async function attachPostViewerFlags(
+  posts: FormattedPost[],
+  postIds: string[],
+  viewerId?: string,
+): Promise<Array<FormattedPost & { isLiked: boolean; isSaved: boolean }>> {
+  if (!viewerId || posts.length === 0) {
+    return posts.map((p) => ({ ...p, isLiked: false, isSaved: false }));
+  }
+  const [likes, saves] = await Promise.all([
+    prisma.like.findMany({ where: { userId: viewerId, postId: { in: postIds } }, select: { postId: true } }),
+    prisma.save.findMany({ where: { userId: viewerId, postId: { in: postIds } }, select: { postId: true } }),
+  ]);
+  const likedSet = new Set(likes.map((l) => l.postId));
+  const savedSet = new Set(saves.map((s) => s.postId));
+  return posts.map((p) => ({ ...p, isLiked: likedSet.has(p.id), isSaved: savedSet.has(p.id) }));
 }
 
 export function formatPost(post: Record<string, unknown>): FormattedPost {

@@ -1,8 +1,9 @@
 import { prisma } from '../lib/prisma/client';
 import { redis } from '../lib/redis/client';
 import { AppError } from '../middleware/error.middleware';
-import { buildPaginationMeta } from '@vesioh/utils';
-import { PAGINATION } from '../config/constants';
+import { buildPaginationMeta, parsePagination } from '@vesioh/utils';
+import { PAGINATION, REDIS_KEYS } from '../config/constants';
+import { ensureOwnerOrMod } from '../lib/permissions';
 import { createNotification } from './notification.service';
 
 const COMMENT_SELECT = {
@@ -95,8 +96,7 @@ export async function getPostComments(
   limit: number,
   _viewerId?: string,
 ) {
-  const safeLimit = Math.min(limit, PAGINATION.MAX_LIMIT);
-  const offset = (page - 1) * safeLimit;
+  const { limit: safeLimit, offset } = parsePagination({ page, limit }, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
 
   const [total, comments] = await Promise.all([
     prisma.comment.count({ where: { postId, parentId: null } }),
@@ -117,8 +117,7 @@ export async function getCommentReplies(
   page: number,
   limit: number,
 ) {
-  const safeLimit = Math.min(limit, 50);
-  const offset = (page - 1) * safeLimit;
+  const { limit: safeLimit, offset } = parsePagination({ page, limit }, PAGINATION.DEFAULT_LIMIT, PAGINATION.MAX_LIMIT);
 
   const [total, replies] = await Promise.all([
     prisma.comment.count({ where: { parentId: commentId } }),
@@ -145,9 +144,7 @@ export async function deleteComment(
   });
   if (!comment) throw new AppError(404, 'NOT_FOUND', 'Comment not found');
 
-  const isOwner = comment.authorId === requesterId;
-  const isMod = requesterRole === 'moderator' || requesterRole === 'admin';
-  if (!isOwner && !isMod) throw new AppError(403, 'FORBIDDEN', 'Cannot delete this comment');
+  ensureOwnerOrMod(comment.authorId, requesterId, requesterRole, 'Cannot delete this comment');
 
   await prisma.$transaction([
     prisma.comment.delete({ where: { id: commentId } }),
@@ -165,7 +162,7 @@ export async function likeComment(userId: string, commentId: string): Promise<vo
   const comment = await prisma.comment.findUnique({ where: { id: commentId }, select: { id: true } });
   if (!comment) throw new AppError(404, 'NOT_FOUND', 'Comment not found');
 
-  const key = `comment_likes:${commentId}`;
+  const key = REDIS_KEYS.commentLikes(commentId);
   const added = await redis.sadd(key, userId);
   if (added === 0) return;
 
@@ -174,7 +171,7 @@ export async function likeComment(userId: string, commentId: string): Promise<vo
 }
 
 export async function unlikeComment(userId: string, commentId: string): Promise<void> {
-  const key = `comment_likes:${commentId}`;
+  const key = REDIS_KEYS.commentLikes(commentId);
   const removed = await redis.srem(key, userId);
   if (removed === 0) return;
 
