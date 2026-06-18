@@ -13,6 +13,7 @@ export function errorResponse(
   code: string,
   message: string,
   details?: Record<string, string[]>,
+  requestId?: string,
 ): ApiError {
   return {
     success: false,
@@ -21,6 +22,7 @@ export function errorResponse(
       code,
       message,
       ...(details !== undefined && { details }),
+      ...(requestId !== undefined && { requestId }),
     },
   };
 }
