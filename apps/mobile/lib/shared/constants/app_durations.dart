@@ -12,4 +12,9 @@ abstract final class AppDurations {
 
   // Welcome page swipe
   static const int welcomePageSwipe = 350;
+
+  // Registration complete splash
+  static const int splashLogoAnim = 800;
+  static const int splashTaglineDelay = 1000;
+  static const int splashNavDelay = 2800;
 }

@@ -16,6 +16,7 @@ abstract final class AppDimensions {
 
   // Avatars
   static const double avatarMd = 60;
+  static const double avatarXl = 140;
 
   // Button
   static const double buttonHeight = 52;
@@ -50,6 +51,7 @@ abstract final class AppDimensions {
 
   // Logo
   static const double logoIconSize = 48;
+  static const double splashLogoSize = 140;
 
   // Chip
   static const double chipPaddingH = 12;
@@ -75,4 +77,9 @@ abstract final class AppDimensions {
   // Birthday date picker
   static const double datePickerHeight = 216;
   static const double datePickerItemExtent = 40;
+
+  // Home feed — stories
+  static const double storyRowHeight = 110;
+  static const double storyAvatarSize = 72;
+  static const double storyAddBadge = 20;
 }

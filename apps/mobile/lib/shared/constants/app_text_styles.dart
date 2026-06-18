@@ -125,4 +125,38 @@ abstract final class AppTextStyles {
     fontSize: 24,
     color: AppColors.textMutedTransparent,
   );
+
+  // ── Feed / home ───────────────────────────────────────────────────────────
+
+  /// 10px SemiBold White — story avatar label.
+  static const TextStyle storyLabel = TextStyle(
+    fontFamily: _kFontFamily,
+    fontWeight: FontWeight.w600,
+    fontSize: 10,
+    color: AppColors.white,
+  );
+
+  /// 10px Bold White — LIVE badge text.
+  static const TextStyle liveBadge = TextStyle(
+    fontFamily: _kFontFamily,
+    fontWeight: FontWeight.w700,
+    fontSize: 10,
+    color: AppColors.white,
+  );
+
+  /// 14px Bold White — active feed tab label.
+  static const TextStyle feedTabActive = TextStyle(
+    fontFamily: _kFontFamily,
+    fontWeight: FontWeight.w700,
+    fontSize: 14,
+    color: AppColors.white,
+  );
+
+  /// 14px SemiBold Muted — inactive feed tab label.
+  static const TextStyle feedTabInactive = TextStyle(
+    fontFamily: _kFontFamily,
+    fontWeight: FontWeight.w600,
+    fontSize: 14,
+    color: AppColors.textMuted,
+  );
 }

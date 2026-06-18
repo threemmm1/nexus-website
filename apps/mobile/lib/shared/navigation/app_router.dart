@@ -6,6 +6,9 @@ import '../../features/auth/interests_screen.dart';
 import '../../features/auth/password_screen.dart';
 import '../../features/auth/phone_reach_screen.dart';
 import '../../features/auth/sign_up_screen.dart';
+import '../../features/auth/profile_picture_screen.dart';
+import '../../features/auth/registration_complete_screen.dart';
+import '../../features/auth/suggested_communities_screen.dart';
 import '../../features/auth/suggested_creators_screen.dart';
 import '../../features/auth/username_screen.dart';
 import '../../features/auth/verify_code_screen.dart';
@@ -44,6 +47,15 @@ final appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.suggestedCreators,
       builder: (_, __) => const SuggestedCreatorsScreen(),
+    ),
+    GoRoute(path: AppRoutes.profilePicture, builder: (_, __) => const ProfilePictureScreen()),
+    GoRoute(
+      path: AppRoutes.suggestedCommunities,
+      builder: (_, __) => const SuggestedCommunitiesScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.registrationComplete,
+      builder: (_, __) => const RegistrationCompleteScreen(),
     ),
     GoRoute(path: AppRoutes.home, builder: (_, __) => const HomeScreen()),
   ],

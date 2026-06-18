@@ -1,40 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../shared/constants/app_colors.dart';
 import '../../shared/constants/app_dimensions.dart';
 import '../../shared/constants/app_durations.dart';
-import '../../shared/navigation/app_routes.dart';
-import '../../shared/constants/app_colors.dart';
 import '../../shared/constants/app_text_styles.dart';
+import '../../shared/navigation/app_routes.dart';
 import '../../shared/widgets/auth_header.dart';
 import '../../shared/widgets/vesioh_button.dart';
-import 'suggested_creators_viewmodel.dart';
+import 'suggested_communities_viewmodel.dart';
 
-class _Creator {
-  const _Creator({required this.name, required this.handle, required this.followers});
+class _Community {
+  const _Community({
+    required this.name,
+    required this.description,
+    required this.members,
+  });
   final String name;
-  final String handle;
-  final String followers;
+  final String description;
+  final String members;
 }
 
-// PLACEHOLDER DATA — there is no suggested-creators endpoint on the backend yet.
-// Replace with UserRepository.getSuggestedCreators() (AsyncValue-driven) once that
-// endpoint exists. Do not treat this list as real user data.
-const _placeholderCreators = [
-  _Creator(name: 'Novaplays', handle: '@nova', followers: '2.1M followers'),
-  _Creator(name: 'Lyra', handle: '@lyrabeats', followers: '890K followers'),
-  _Creator(name: 'Kojofit', handle: '@kojofit', followers: '430K followers'),
-  _Creator(name: 'Zara', handle: '@zaradraws', followers: '210K followers'),
-  _Creator(name: 'Mako', handle: '@makobeats', followers: '98K followers'),
+// PLACEHOLDER DATA — replace with a communities endpoint when available.
+const _placeholderCommunities = [
+  _Community(name: 'Valorant Africa', description: 'Ranked queues & scrims', members: '48K members'),
+  _Community(name: 'Creator Lounge', description: 'Tips, collabs & feedback', members: '126K members'),
+  _Community(name: 'Beat Makers', description: 'Share loops & samples', members: '31K members'),
+  _Community(name: 'Indie Devs', description: 'Build in public', members: '19K members'),
 ];
 
-class SuggestedCreatorsScreen extends ConsumerWidget {
-  const SuggestedCreatorsScreen({super.key});
+class SuggestedCommunitiesScreen extends ConsumerWidget {
+  const SuggestedCommunitiesScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final following = ref.watch(suggestedCreatorsViewModelProvider);
-    final viewModel = ref.watch(suggestedCreatorsViewModelProvider.notifier);
+    final joined = ref.watch(suggestedCommunitiesViewModelProvider);
+    final viewModel = ref.read(suggestedCommunitiesViewModelProvider.notifier);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -45,18 +47,18 @@ class SuggestedCreatorsScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AuthHeader(
-                title: 'Follow a few creators',
-                subtitle: "Start building a feed you'll actually enjoy.",
+                title: 'Find your people',
+                subtitle: 'Join communities to chat and catch events.',
                 onBack: () => context.pop(),
               ),
               const SizedBox(height: AppDimensions.spacingLg),
               Expanded(
                 child: ListView.separated(
-                  itemCount: _placeholderCreators.length,
+                  itemCount: _placeholderCommunities.length,
                   separatorBuilder: (_, __) => const SizedBox(height: AppDimensions.spacingLg),
                   itemBuilder: (context, i) {
-                    final creator = _placeholderCreators[i];
-                    final isFollowing = following.contains(i);
+                    final community = _placeholderCommunities[i];
+                    final isJoined = joined.contains(i);
                     return Row(
                       children: [
                         Container(
@@ -74,24 +76,20 @@ class SuggestedCreatorsScreen extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              Text(community.name, style: AppTextStyles.listTitle),
+                              Text(community.description, style: AppTextStyles.body),
                               Text(
-                                creator.name,
-                                style: AppTextStyles.listTitle,
-                              ),
-                              Text(
-                                creator.handle,
-                                style: AppTextStyles.bodyMuted,
-                              ),
-                              Text(
-                                creator.followers,
-                                style: AppTextStyles.bodyMuted,
+                                community.members,
+                                style: AppTextStyles.bodyMuted.copyWith(
+                                  color: const Color(0xFF636367),
+                                ),
                               ),
                             ],
                           ),
                         ),
                         Semantics(
                           button: true,
-                          label: isFollowing ? 'Unfollow ${creator.name}' : 'Follow ${creator.name}',
+                          label: isJoined ? 'Leave ${community.name}' : 'Join ${community.name}',
                           child: GestureDetector(
                             onTap: () => viewModel.toggle(i),
                             child: AnimatedContainer(
@@ -101,7 +99,7 @@ class SuggestedCreatorsScreen extends ConsumerWidget {
                                 vertical: AppDimensions.chipPaddingV,
                               ),
                               decoration: BoxDecoration(
-                                color: isFollowing ? AppColors.primary : AppColors.textMuted,
+                                color: isJoined ? AppColors.primary : AppColors.textMuted,
                                 borderRadius: const BorderRadius.all(
                                   Radius.circular(AppDimensions.chipRadius),
                                 ),
@@ -110,13 +108,13 @@ class SuggestedCreatorsScreen extends ConsumerWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    isFollowing ? Icons.check : Icons.add,
+                                    isJoined ? Icons.check : Icons.add,
                                     color: AppColors.white,
                                     size: AppDimensions.iconMd,
                                   ),
                                   const SizedBox(width: AppDimensions.spacingSm),
                                   Text(
-                                    isFollowing ? 'Following' : 'Follow',
+                                    isJoined ? 'Joined' : 'Join',
                                     style: AppTextStyles.buttonSecondary,
                                   ),
                                 ],
@@ -132,16 +130,13 @@ class SuggestedCreatorsScreen extends ConsumerWidget {
               const SizedBox(height: AppDimensions.spacingLg),
               VesiohButton(
                 label: 'Continue',
-                onPressed: () => context.go(AppRoutes.profilePicture),
+                onPressed: () => context.go(AppRoutes.registrationComplete),
               ),
               const SizedBox(height: AppDimensions.spacingLg),
               Center(
                 child: GestureDetector(
-                  onTap: () => context.go(AppRoutes.profilePicture),
-                  child: const Text(
-                    'Skip for now',
-                    style: AppTextStyles.buttonLink,
-                  ),
+                  onTap: () => context.go(AppRoutes.registrationComplete),
+                  child: const Text('Skip for now', style: AppTextStyles.buttonLink),
                 ),
               ),
               const SizedBox(height: AppDimensions.spacingXxl),

@@ -13,5 +13,8 @@ class AppRoutes {
   static const password = '/auth/password';
   static const interests = '/auth/interests';
   static const suggestedCreators = '/auth/suggested-creators';
+  static const profilePicture = '/auth/profile-picture';
+  static const suggestedCommunities = '/auth/suggested-communities';
+  static const registrationComplete = '/auth/registration-complete';
   static const home = '/home';
 }
