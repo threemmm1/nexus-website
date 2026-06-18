@@ -15,6 +15,20 @@ interface RefreshTokenPayload {
   tokenId: string;
 }
 
+// Converts a JWT duration string ("15m", "30d", "3600") into seconds so the
+// client and the token agree on a single source of truth for expiry.
+export function durationToSeconds(value: string): number {
+  const match = /^(\d+)\s*(s|m|h|d)?$/.exec(value.trim());
+  if (!match) return 0;
+  const amount = Number(match[1]);
+  const unit = match[2] ?? 's';
+  const multipliers: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86400 };
+  return amount * (multipliers[unit] ?? 1);
+}
+
+export const accessTokenTtlSeconds = durationToSeconds(env.JWT_ACCESS_EXPIRES_IN);
+export const refreshTokenTtlSeconds = durationToSeconds(env.JWT_REFRESH_EXPIRES_IN);
+
 export function signAccessToken(payload: AccessTokenPayload): string {
   // jwt types use a broad overload set — cast to bypass exactOptionalPropertyTypes friction
   return (jwt.sign as (p: object, s: string, o: object) => string)(
@@ -40,9 +54,9 @@ export async function issueRefreshToken(userId: string): Promise<string> {
     { expiresIn: env.JWT_REFRESH_EXPIRES_IN },
   );
 
-  // Store tokenId in Redis — allows server-side revocation
-  const ttlSeconds = 30 * 24 * 60 * 60; // 30 days
-  await redis.set(REDIS_KEYS.refreshToken(userId), tokenId, 'EX', ttlSeconds);
+  // Store tokenId in Redis — allows server-side revocation. TTL mirrors the
+  // signed token's own expiry so Redis and the JWT invalidate together.
+  await redis.set(REDIS_KEYS.refreshToken(userId), tokenId, 'EX', refreshTokenTtlSeconds);
 
   return token;
 }

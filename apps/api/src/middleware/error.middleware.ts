@@ -20,10 +20,25 @@ export function errorHandler(
   _next: NextFunction,
 ): void {
   if (err instanceof AppError) {
-    res.status(err.statusCode).json(errorResponse(err.code, err.message));
+    // Client errors (4xx) are expected; log at warn without a stack to avoid noise.
+    if (err.statusCode >= 500) {
+      logger.error(err.message, { requestId: req.id, code: err.code, path: req.path, err });
+    } else {
+      logger.warn(err.message, { requestId: req.id, code: err.code, path: req.path });
+    }
+    res
+      .status(err.statusCode)
+      .json(errorResponse(err.code, err.message, undefined, req.id));
     return;
   }
 
-  logger.error('Unhandled error', { err, path: req.path, method: req.method });
-  res.status(500).json(errorResponse('INTERNAL_ERROR', 'An unexpected error occurred'));
+  logger.error('Unhandled error', {
+    requestId: req.id,
+    path: req.path,
+    method: req.method,
+    err,
+  });
+  res
+    .status(500)
+    .json(errorResponse('INTERNAL_ERROR', 'An unexpected error occurred', undefined, req.id));
 }

@@ -56,7 +56,53 @@ const envSchema = z.object({
   API_URL: z.string().url().default('http://localhost:4000'),
 });
 
-const parsed = envSchema.safeParse(process.env);
+// In production, dev placeholders and weak secrets must never slip through.
+// These defaults exist only so the app boots locally without every integration.
+const PLACEHOLDER_VALUES = new Set([
+  '',
+  'sk_test_dev_placeholder',
+  'whsec_dev_placeholder',
+  'dev@placeholder.com',
+  'https://localhost',
+]);
+
+const productionSchema = envSchema.superRefine((cfg, ctx) => {
+  if (cfg.NODE_ENV !== 'production') return;
+
+  const required: Array<keyof typeof cfg> = [
+    'JWT_ACCESS_SECRET',
+    'JWT_REFRESH_SECRET',
+    'AWS_ACCESS_KEY_ID',
+    'AWS_SECRET_ACCESS_KEY',
+    'AWS_S3_BUCKET',
+    'AWS_CLOUDFRONT_URL',
+    'STRIPE_SECRET_KEY',
+    'STRIPE_WEBHOOK_SECRET',
+  ];
+
+  for (const key of required) {
+    const value = cfg[key];
+    if (typeof value === 'string' && PLACEHOLDER_VALUES.has(value)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: `${key} must be set to a real value in production (placeholder detected)`,
+      });
+    }
+  }
+
+  for (const key of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'] as const) {
+    if (cfg[key].length < 64) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: `${key} must be at least 64 characters in production`,
+      });
+    }
+  }
+});
+
+const parsed = productionSchema.safeParse(process.env);
 
 if (!parsed.success) {
   console.error('Invalid environment variables:');

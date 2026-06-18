@@ -21,3 +21,8 @@ redis.on('error', (err) => {
 export async function connectRedis(): Promise<void> {
   await redis.connect();
 }
+
+export async function disconnectRedis(): Promise<void> {
+  if (redis.status === 'end' || redis.status === 'close') return;
+  await redis.quit();
+}

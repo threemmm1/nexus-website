@@ -8,6 +8,8 @@ import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env';
 import { apiRateLimiter } from './middleware/rate-limiter.middleware';
 import { errorHandler } from './middleware/error.middleware';
+import { requestId } from './middleware/request-id.middleware';
+import { checkHealth } from './lib/health';
 import { openApiSpec } from './lib/docs/openapi';
 import { authRouter } from './routes/auth.routes';
 import { usersRouter } from './routes/users.routes';
@@ -29,6 +31,9 @@ app.use(helmet());
 app.use(cors({ origin: env.CLIENT_URL, credentials: true }));
 app.set('trust proxy', 1);
 
+// Correlation ID — assigned before logging so every log line can be traced.
+app.use(requestId);
+
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -36,15 +41,27 @@ app.use(compression());
 
 // Logging
 if (env.NODE_ENV !== 'test') {
-  app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+  morgan.token('id', (req: express.Request) => req.id);
+  const format =
+    env.NODE_ENV === 'production'
+      ? ':id :remote-addr :method :url :status :response-time ms'
+      : 'dev';
+  app.use(morgan(format));
 }
 
 // Global rate limit
 app.use('/api', apiRateLimiter);
 
-// Health check
+// Liveness — is the process up? Always cheap, never touches dependencies.
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', env: env.NODE_ENV, timestamp: new Date().toISOString() });
+});
+
+// Readiness — can this instance actually serve traffic? Probes dependencies.
+// Returns 503 when degraded so load balancers stop routing to it.
+app.get('/health/ready', async (_req, res) => {
+  const report = await checkHealth();
+  res.status(report.status === 'ok' ? 200 : 503).json(report);
 });
 
 // API Docs — disabled in production

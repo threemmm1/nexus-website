@@ -39,3 +39,8 @@ export function getIO(): SocketServer {
   if (!io) throw new Error('Socket.io not initialized');
   return io;
 }
+
+export async function closeSocket(): Promise<void> {
+  if (!io) return;
+  await io.close();
+}

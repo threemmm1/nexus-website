@@ -3,7 +3,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { randomInt } from 'crypto';
 import { prisma } from '../lib/prisma/client';
 import { redis } from '../lib/redis/client';
-import { signAccessToken, issueRefreshToken, revokeRefreshToken } from './token.service';
+import {
+  signAccessToken,
+  issueRefreshToken,
+  revokeRefreshToken,
+  accessTokenTtlSeconds,
+} from './token.service';
 import { AppError } from '../middleware/error.middleware';
 import { REDIS_KEYS } from '../config/constants';
 import { env } from '../config/env';
@@ -114,7 +119,7 @@ export async function loginWithEmail(
     userId: user.id,
     accessToken,
     refreshToken,
-    expiresIn: 15 * 60,
+    expiresIn: accessTokenTtlSeconds,
   };
 }
 
@@ -142,7 +147,7 @@ export async function refreshSession(
   return {
     accessToken: newAccessToken,
     refreshToken: newRefreshToken,
-    expiresIn: 15 * 60,
+    expiresIn: accessTokenTtlSeconds,
   };
 }
 

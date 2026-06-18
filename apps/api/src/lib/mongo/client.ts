@@ -7,5 +7,14 @@ export async function connectMongo(): Promise<void> {
   logger.info('MongoDB connected');
 }
 
+export async function disconnectMongo(): Promise<void> {
+  if (mongoose.connection.readyState === 0) return;
+  await mongoose.disconnect();
+}
+
+export function isMongoConnected(): boolean {
+  return mongoose.connection.readyState === 1;
+}
+
 mongoose.connection.on('error', (err) => logger.error('MongoDB error', { err }));
 mongoose.connection.on('disconnected', () => logger.warn('MongoDB disconnected'));

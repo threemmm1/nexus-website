@@ -1,11 +1,16 @@
-import { createServer } from 'http';
+import { createServer, type Server } from 'http';
 import { app } from './app';
 import { env } from './config/env';
 import { logger } from './lib/logger';
 import { prisma } from './lib/prisma/client';
-import { connectRedis } from './lib/redis/client';
-import { connectMongo } from './lib/mongo/client';
-import { initSocket } from './lib/socket';
+import { connectRedis, disconnectRedis } from './lib/redis/client';
+import { connectMongo, disconnectMongo } from './lib/mongo/client';
+import { initSocket, closeSocket } from './lib/socket';
+
+const SHUTDOWN_TIMEOUT_MS = 10_000;
+
+let httpServer: Server | undefined;
+let shuttingDown = false;
 
 async function bootstrap(): Promise<void> {
   const isDev = env.NODE_ENV === 'development';
@@ -34,7 +39,7 @@ async function bootstrap(): Promise<void> {
     logger.warn('PostgreSQL unavailable — DB features will not work (run: docker compose up -d)');
   }
 
-  const httpServer = createServer(app);
+  httpServer = createServer(app);
   initSocket(httpServer);
 
   httpServer.listen(env.PORT, () => {
@@ -46,13 +51,51 @@ async function bootstrap(): Promise<void> {
   });
 }
 
-async function shutdown(signal: string): Promise<void> {
+async function closeResources(): Promise<void> {
+  await closeSocket();
+  await Promise.allSettled([prisma.$disconnect(), disconnectRedis(), disconnectMongo()]);
+}
+
+async function shutdown(signal: string, exitCode = 0): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
   logger.info(`${signal} received — shutting down gracefully`);
-  await prisma.$disconnect();
-  process.exit(0);
+
+  // Force-exit if cleanup hangs so orchestrators don't wait indefinitely.
+  const forceExit = setTimeout(() => {
+    logger.error('Graceful shutdown timed out — forcing exit');
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT_MS);
+  forceExit.unref();
+
+  try {
+    if (httpServer) {
+      await new Promise<void>((resolve, reject) => {
+        httpServer!.close((err) => (err ? reject(err) : resolve()));
+      });
+    }
+    await closeResources();
+    clearTimeout(forceExit);
+    process.exit(exitCode);
+  } catch (err) {
+    logger.error('Error during shutdown', { err });
+    process.exit(1);
+  }
 }
 
 process.on('SIGTERM', () => void shutdown('SIGTERM'));
 process.on('SIGINT', () => void shutdown('SIGINT'));
+
+// A rejected promise or thrown error with no handler leaves the process in an
+// undefined state. Log it and shut down cleanly rather than running on corrupted state.
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled promise rejection', { reason });
+  void shutdown('unhandledRejection', 1);
+});
+
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught exception', { err });
+  void shutdown('uncaughtException', 1);
+});
 
 void bootstrap();
