@@ -54,6 +54,9 @@ const envSchema = z.object({
   // App
   CLIENT_URL: z.string().url().default('http://localhost:3000'),
   API_URL: z.string().url().default('http://localhost:4000'),
+  // Comma-separated allowlist of origins permitted by CORS (web, admin, staging).
+  // Falls back to CLIENT_URL when unset.
+  CORS_ORIGINS: z.string().default(''),
 });
 
 // In production, dev placeholders and weak secrets must never slip through.
@@ -112,3 +115,10 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 export type Env = typeof env;
+
+// Resolved CORS allowlist: explicit CORS_ORIGINS list, else the single CLIENT_URL.
+export const corsOrigins: string[] = (
+  env.CORS_ORIGINS.length > 0
+    ? env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+    : [env.CLIENT_URL]
+);

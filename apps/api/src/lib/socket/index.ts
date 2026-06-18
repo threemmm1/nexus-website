@@ -1,6 +1,6 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
-import { env } from '../../config/env';
+import { corsOrigins } from '../../config/env';
 import { logger } from '../logger';
 import { verifyAccessToken } from '../../services/token.service';
 
@@ -8,7 +8,7 @@ let io: SocketServer;
 
 export function initSocket(httpServer: HttpServer): SocketServer {
   io = new SocketServer(httpServer, {
-    cors: { origin: env.CLIENT_URL, credentials: true },
+    cors: { origin: corsOrigins, credentials: true },
     transports: ['websocket', 'polling'],
   });
 

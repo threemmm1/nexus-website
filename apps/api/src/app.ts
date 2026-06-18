@@ -5,7 +5,7 @@ import cors from 'cors';
 import compression from 'compression';
 import morgan from 'morgan';
 import swaggerUi from 'swagger-ui-express';
-import { env } from './config/env';
+import { env, corsOrigins } from './config/env';
 import { apiRateLimiter } from './middleware/rate-limiter.middleware';
 import { errorHandler } from './middleware/error.middleware';
 import { requestId } from './middleware/request-id.middleware';
@@ -28,7 +28,7 @@ const app = express();
 
 // Security
 app.use(helmet());
-app.use(cors({ origin: env.CLIENT_URL, credentials: true }));
+app.use(cors({ origin: corsOrigins, credentials: true }));
 app.set('trust proxy', 1);
 
 // Correlation ID — assigned before logging so every log line can be traced.

@@ -1,10 +1,11 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { logger } from '../logger';
 
 const prisma = new PrismaClient();
 
 async function main(): Promise<void> {
-  console.warn('Seeding database...');
+  logger.info('Seeding database...');
 
   // Seed coin packages
   await prisma.coinPackage.createMany({
@@ -75,12 +76,12 @@ async function main(): Promise<void> {
         notifications: { create: {} },
       },
     });
-    console.warn('Dev admin created: admin@vesioh.com / Admin123!');
+    logger.info('Dev admin created: admin@vesioh.com / Admin123!');
   }
 
-  console.warn('Seed complete');
+  logger.info('Seed complete');
 }
 
 main()
-  .catch(console.error)
+  .catch((err: unknown) => logger.error('Seed failed', { err }))
   .finally(() => void prisma.$disconnect());
