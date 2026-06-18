@@ -15,29 +15,27 @@ let shuttingDown = false;
 async function bootstrap(): Promise<void> {
   const isDev = env.NODE_ENV === 'development';
 
-  // In production all services must be up before accepting traffic.
-  // In development, warn and continue so Swagger/health are accessible without Docker.
-  try {
-    await connectRedis();
-  } catch (err) {
-    if (!isDev) throw err;
-    logger.warn('Redis unavailable — some features will not work (run: docker compose up -d)');
-  }
+  // Connect to all datastores concurrently — they are independent, so awaiting
+  // them sequentially would stack their timeouts. In production any failure
+  // rejects and aborts startup; in development we warn and continue so Swagger
+  // and the health endpoints stay reachable without Docker.
+  const connect = async (fn: () => Promise<unknown>, devWarning: string): Promise<void> => {
+    try {
+      await fn();
+    } catch (err) {
+      if (!isDev) throw err;
+      logger.warn(devWarning);
+    }
+  };
 
-  try {
-    await connectMongo();
-  } catch (err) {
-    if (!isDev) throw err;
-    logger.warn('MongoDB unavailable — messaging/feed features will not work');
-  }
-
-  try {
-    await prisma.$connect();
-    logger.info('PostgreSQL connected');
-  } catch (err) {
-    if (!isDev) throw err;
-    logger.warn('PostgreSQL unavailable — DB features will not work (run: docker compose up -d)');
-  }
+  await Promise.all([
+    connect(connectRedis, 'Redis unavailable — some features will not work (run: docker compose up -d)'),
+    connect(connectMongo, 'MongoDB unavailable — messaging/feed features will not work'),
+    connect(async () => {
+      await prisma.$connect();
+      logger.info('PostgreSQL connected');
+    }, 'PostgreSQL unavailable — DB features will not work (run: docker compose up -d)'),
+  ]);
 
   httpServer = createServer(app);
   initSocket(httpServer);
@@ -98,4 +96,7 @@ process.on('uncaughtException', (err) => {
   void shutdown('uncaughtException', 1);
 });
 
-void bootstrap();
+bootstrap().catch((err: unknown) => {
+  logger.error('Fatal error during startup', { err });
+  process.exit(1);
+});

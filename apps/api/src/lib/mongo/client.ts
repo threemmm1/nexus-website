@@ -3,7 +3,13 @@ import { env } from '../../config/env';
 import { logger } from '../logger';
 
 export async function connectMongo(): Promise<void> {
-  await mongoose.connect(env.MONGODB_URI, { dbName: 'vesioh' });
+  // Default serverSelectionTimeoutMS is 30s, which makes startup hang when Mongo
+  // is unreachable. Fail fast (5s) so the dev warn-and-continue path is quick and
+  // production aborts startup promptly instead of stalling the readiness probe.
+  await mongoose.connect(env.MONGODB_URI, {
+    dbName: 'vesioh',
+    serverSelectionTimeoutMS: 5000,
+  });
   logger.info('MongoDB connected');
 }
 

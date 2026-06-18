@@ -1,0 +1,24 @@
+**/node_modules
+**/dist
+**/.turbo
+**/.next
+**/build
+
+# Secrets & local env
+**/.env
+**/.env.*
+!**/.env.example
+
+# VCS & tooling
+.git
+.gitignore
+.claude
+**/*.log
+
+# Mobile — not part of the API image
+apps/mobile
+
+# Tests & coverage
+**/coverage
+**/*.test.ts
+**/*.spec.ts

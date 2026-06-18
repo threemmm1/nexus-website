@@ -19,6 +19,18 @@ redis.on('error', (err) => {
 });
 
 export async function connectRedis(): Promise<void> {
+  // With lazyConnect the client starts in "wait". A retryStrategy reconnect can
+  // already have moved it past "wait", in which case connect() would throw
+  // "already connecting/connected" — only call it when genuinely idle, and
+  // otherwise wait for the in-progress connection to become ready.
+  if (redis.status === 'ready') return;
+  if (redis.status !== 'wait') {
+    await new Promise<void>((resolve, reject) => {
+      redis.once('ready', resolve);
+      redis.once('error', reject);
+    });
+    return;
+  }
   await redis.connect();
 }
 
