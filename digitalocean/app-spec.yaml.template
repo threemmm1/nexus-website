@@ -1,0 +1,13 @@
+name: vesioh-api
+services:
+  - name: api
+    image:
+      registry: ${DOCR_REGISTRY_HOST}
+      repository: ${DOCR_REPOSITORY}
+      tag: ${IMAGE_TAG}
+    run_command: node dist/server.js
+    http_port: 4000
+    instance_size_slug: basic-xxs
+    instance_count: 1
+    routes:
+      - path: /

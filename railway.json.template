@@ -1,0 +1,10 @@
+{
+  "projectId": "REPLACE_WITH_RAILWAY_PROJECT_ID",
+  "services": [
+    {
+      "name": "web",
+      "path": "apps/web",
+      "startCommand": "nginx -g 'daemon off;'"
+    }
+  ]
+}
